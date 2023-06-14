@@ -58,15 +58,136 @@ template LessThan(n) {
     out <== 1-n2b.out[n];
 }
 
+template CalculateTotal(n) {
+    signal input nums[n];
+    signal output sum;
+
+    signal sums[n];
+    sums[0] <== nums[0];
+
+    for (var i=1; i < n; i++) {
+        sums[i] <== sums[i - 1] + nums[i];
+    }
+
+    sum <== sums[n - 1];
+}
+
+template QuinSelector(choices) {
+    signal input in[choices];
+    signal input index;
+    signal output out;
+    
+    // Ensure that index < choices
+    component lessThan = LessThan(4);
+    lessThan.in[0] <== index;
+    lessThan.in[1] <== choices;
+    lessThan.out === 1;
+
+    component calcTotal = CalculateTotal(choices);
+    component eqs[choices];
+
+    // For each item, check whether its index equals the input index.
+    for (var i = 0; i < choices; i ++) {
+        eqs[i] = IsEqual();
+        eqs[i].in[0] <== i;
+        eqs[i].in[1] <== index;
+
+        // eqs[i].out is 1 if the index matches. As such, at most one input to
+        // calcTotal is not 0.
+        calcTotal.nums[i] <== eqs[i].out * in[i];
+    }
+
+    // Returns 0 + 0 + ... + item
+    out <== calcTotal.sum;
+}
+
+// I don't know how make out == 0, when index > nChoices, so the program makes assert 
+// failed when that situation happens 
 template Selector(nChoices){
     signal input in[nChoices];
     signal input index;
 
     signal output out;
-    component check = LessThan(252);
+    component check = LessThan(4);
     check.in <== [index, nChoices];
+
+    check.out === 1;
+
+    component quinSelector = QuinSelector(nChoices);
+    for (var k=0; k< nChoices; k++) {
+        quinSelector.in[k] <== in[k];
+    }
+    quinSelector.index <== index;
+     
+    out <== quinSelector.out;
     
-    out <== check.out * in[3];
+}
+
+template CompConstant(ct) {
+    signal input in[254];
+    signal output out;
+
+    signal parts[127];
+    signal sout;
+
+    var clsb;
+    var cmsb;
+    var slsb;
+    var smsb;
+
+    var sum=0;
+
+    var b = (1 << 128) -1;
+    var a = 1;
+    var e = 1;
+    var i;
+
+    for (i=0;i<127; i++) {
+        clsb = (ct >> (i*2)) & 1;
+        cmsb = (ct >> (i*2+1)) & 1;
+        slsb = in[i*2];
+        smsb = in[i*2+1];
+
+        if ((cmsb==0)&&(clsb==0)) {
+            parts[i] <== -b*smsb*slsb + b*smsb + b*slsb;
+        } else if ((cmsb==0)&&(clsb==1)) {
+            parts[i] <== a*smsb*slsb - a*slsb + b*smsb - a*smsb + a;
+        } else if ((cmsb==1)&&(clsb==0)) {
+            parts[i] <== b*smsb*slsb - a*smsb + a;
+        } else {
+            parts[i] <== -a*smsb*slsb + a;
+        }
+
+        sum = sum + parts[i];
+
+        b = b -e;
+        a = a +e;
+        e = e*2;
+    }
+
+    sout <== sum;
+
+    component num2bits = Num2Bits(135);
+
+    num2bits.in <== sout;
+
+    out <== num2bits.out[127];
+}
+
+template IsNegative {
+    signal input in[254];
+    signal output out;
+
+    component cc = CompConstant(10944121435919637611123202872628637544274182200208017171849102093287904247808);
+
+    var i;
+
+    for (i=0; i<254; i++) {
+        cc.in[i] <== in[i];
+    }
+
+    out <== cc.out;
+
 }
 
 component main = Selector(5);
