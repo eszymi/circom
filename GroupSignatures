@@ -1,0 +1,139 @@
+pragma circom 2.0.3;
+
+include "circomlib/poseidon.circom";
+include "circomlib/mimcsponge.circom";
+// include "https://github.com/0xPARC/circom-secp256k1/blob/master/circuits/bigint.circom";
+
+
+template RevealableGroupSig () {
+    signal input sk;
+
+    signal input pk1;
+    signal input pk2;
+    signal input pk3;
+    signal input msgHash;
+
+    signal output signedMsg;
+
+    component pkGen = MiMCSponge(1, 220, 1); 
+    pkGen.ins[0] <== sk;
+    pkGen.k <== 0;
+
+    signal pk;
+    pk <== pkGen.outs[0];
+
+    signal interm;
+    interm <== (pk - pk1) * (pk - pk2);
+    interm * (pk - pk3) === 0;
+
+    component hashMsg = MiMCSponge(2, 220, 1);
+    hashMsg.ins[0] <== sk;
+    hashMsg.ins[1] <== msgHash;
+    hashMsg.k <== 0;
+    signedMsg <== hashMsg.outs[0];
+}
+
+template UnrevealRevealableGroupSig () {
+    signal input sk;
+    signal input signedMsg;
+    signal input msgHash;
+
+    component pkGen = MiMCSponge(1, 220, 1); 
+    pkGen.ins[0] <== sk;
+    pkGen.k <== 0;
+
+    signal pk;
+    pk <== pkGen.outs[0];
+
+    component hashMsg = MiMCSponge(2, 220, 1);
+    hashMsg.ins[0] <== pk;
+    hashMsg.ins[1] <== msgHash;
+    hashMsg.k <== 0;
+
+    signedMsg === hashMsg.outs[0];    
+}
+
+template UnrevealableGroupSig () {
+    signal input sk;
+
+    signal input pk1;
+    signal input pk2;
+    signal input pk3;
+    signal input msgHash;
+
+    component pkGen = MiMCSponge(1, 220, 1); 
+    pkGen.ins[0] <== sk;
+    pkGen.k <== 0;
+
+    signal pk;
+    pk <== pkGen.outs[0];
+
+    signal interm;
+    interm <== (pk - pk1) * (pk - pk2);
+    interm * (pk - pk3) === 0;
+
+    signal dummy;
+    dummy <== msgHash * msgHash;
+}
+
+template GroupSigWithAdmin () {
+    signal input sk;
+
+    signal input pk1;
+    signal input pk2;
+    signal input pk3;
+    signal input admin_pk;
+    signal input msgHash;
+
+    signal output signedMsg;
+
+    component pkGen = MiMCSponge(1, 220, 1); 
+    pkGen.ins[0] <== sk;
+    pkGen.k <== 0;
+
+    signal pk;
+    pk <== pkGen.outs[0];
+
+    signal interm;
+    interm <== (pk - pk1) * (pk - pk2);
+    interm * (pk - pk3) === 0;
+
+    component hashMsg = MiMCSponge(3, 220, 1);
+    hashMsg.ins[0] <== pk;
+    hashMsg.ins[1] <== msgHash;
+    hashMsg.ins[2] <== admin_pk;
+    hashMsg.k <== 0;
+    signedMsg <== hashMsg.outs[0];
+}
+
+template UnrevealGroupSigWithAdmin() {
+    signal input pk;
+    signal input signedMsg;
+    signal input msgHash;
+    signal input admin_sk;
+
+    component pkGen = MiMCSponge(1, 220, 1); 
+    pkGen.ins[0] <== admin_sk;
+    pkGen.k <== 0;
+
+    signal admin_pk;
+    admin_pk <== pkGen.outs[0];
+
+    component hashMsg = MiMCSponge(3, 220, 1);
+    hashMsg.ins[0] <== pk;
+    hashMsg.ins[1] <== msgHash;
+    hashMsg.ins[2] <== admin_pk;
+    hashMsg.k <== 0;
+
+    signedMsg === hashMsg.outs[0];  
+}
+
+
+component main { public [ signedMsg, msgHash ] } = UnrevealGroupSig();
+
+/* INPUT = {
+    "sk": "42",
+    "msgHash": "10",
+    "signedMsg": "12310716565185872425792484121375228818247149024734508224098688653494236111451"
+
+} */
